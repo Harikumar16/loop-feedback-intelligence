@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LOOP — AI customer-feedback intelligence
 
-## Getting Started
+LOOP turns feedback from support, surveys, reviews, and sales conversations into themes, trends, grounded answers, and leadership-ready reports.
 
-First, run the development server:
+## Included
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Responsive dashboard, feedback inbox, trends, Ask LOOP, reports, settings, Help, and About.
+- Light/dark theme, unified cards/tokens, friendly empty-ready UI, and no oversized assets.
+- PostgreSQL/Prisma multi-tenancy: every feedback, theme, and report record belongs to a workspace.
+- Admin, Analyst, and Viewer roles enforced in the feedback API.
+- Credentials sign-up/sign-in, bcrypt password hashing, Auth.js JWT sessions, Zod validation, safe errors, pagination, and endpoint rate limits.
+- Claude structured classification boundary. It stores classifications at ingestion; it never recomputes them during page rendering.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Copy `.env.example` to `.env` and set `DATABASE_URL` and a long `AUTH_SECRET`.
+2. Run `npm install`.
+3. Run `npm run db:generate`, then `npm run db:migrate -- --name init`.
+4. Run `npm run db:seed` and `npm run dev`.
+5. Open `http://localhost:3000`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set `ANTHROPIC_API_KEY` to enable live classification. Without it, ingestion remains safe and uses a neutral placeholder classification; it never sends data to an external provider.
 
-## Learn More
+## Seed access
 
-To learn more about Next.js, take a look at the following resources:
+All seeded accounts use `LoopDemo!2026`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Role | Email |
+| --- | --- |
+| Admin | `admin@acme.demo` |
+| Analyst | `analyst@acme.demo` |
+| Viewer | `viewer@acme.demo` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+`src/app` contains route-level UI and API handlers. `src/components` holds reusable visual building blocks. `src/lib` owns authentication, database access, permissions, rate limiting, and AI service boundaries. `prisma/schema.prisma` is the relational source of truth.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The feedback API derives workspace membership from the signed-in user, never from a browser-supplied workspace id. This is the tenant-isolation boundary. The API also constrains page sizes and validates every field before writes.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Verification
+
+Run `npm run lint` and `npm run build`. Use `npm audit` to review dependency advisories before deployment; do not run force fixes blindly.
