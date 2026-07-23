@@ -7,6 +7,97 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String       @id @default(cuid())
+  name         String?
+  email        String       @unique
+  passwordHash String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+}
+
+model Workspace {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  feedback    Feedback[]
+  memberships Membership[]
+  reports     Report[]
+  themes      Theme[]
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  role        Role      @default(VIEWER)
+  userId      String
+  workspaceId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId, role])
+}
+
+model Feedback {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  content      String
+  channel      String
+  customer     String?
+  status       FeedbackStatus  @default(NEW)
+  sentiment    Sentiment?
+  score        Float?
+  featureArea  String?
+  sourceDate   DateTime        @default(now())
+  classifiedAt DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  themes       FeedbackTheme[]
+
+  @@index([workspaceId, sourceDate])
+  @@index([workspaceId, status])
+  @@index([workspaceId, sentiment])
+}
+
+model Theme {
+  id          String          @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  feedback    FeedbackTheme[]
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+}
+
+model FeedbackTheme {
+  feedbackId String
+  themeId    String
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  theme      Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@id([feedbackId, themeId])
+}
+
+model Report {
+  id          String    @id @default(cuid())
+  workspaceId String
+  title       String
+  periodStart DateTime
+  periodEnd   DateTime
+  content     Json
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
 enum Role {
   ADMIN
   ANALYST
@@ -23,90 +114,4 @@ enum Sentiment {
   POSITIVE
   NEUTRAL
   NEGATIVE
-}
-
-model User {
-  id           String       @id @default(cuid())
-  name         String?
-  email        String       @unique
-  passwordHash String?
-  memberships  Membership[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-}
-
-model Workspace {
-  id          String       @id @default(cuid())
-  name        String
-  slug        String       @unique
-  memberships Membership[]
-  feedback    Feedback[]
-  themes      Theme[]
-  reports     Report[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model Membership {
-  id          String    @id @default(cuid())
-  role        Role      @default(VIEWER)
-  userId      String
-  workspaceId String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  @@unique([userId, workspaceId])
-  @@index([workspaceId, role])
-}
-
-model Feedback {
-  id          String         @id @default(cuid())
-  workspaceId String
-  content     String         @db.Text
-  channel     String
-  customer    String?
-  status      FeedbackStatus @default(NEW)
-  sentiment   Sentiment?
-  score       Float?
-  featureArea String?
-  sourceDate  DateTime       @default(now())
-  classifiedAt DateTime?
-  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  themes      FeedbackTheme[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  @@index([workspaceId, sourceDate])
-  @@index([workspaceId, status])
-  @@index([workspaceId, sentiment])
-}
-
-model Theme {
-  id          String          @id @default(cuid())
-  workspaceId String
-  name        String
-  description String?
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  feedback    FeedbackTheme[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  @@unique([workspaceId, name])
-}
-
-model FeedbackTheme {
-  feedbackId String
-  themeId    String
-  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
-  theme      Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
-  @@id([feedbackId, themeId])
-}
-
-model Report {
-  id          String    @id @default(cuid())
-  workspaceId String
-  title       String
-  periodStart DateTime
-  periodEnd   DateTime
-  content     Json
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  @@index([workspaceId, createdAt])
 }
