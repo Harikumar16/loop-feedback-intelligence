@@ -7,14 +7,16 @@
     "dev:loop": "next dev --port 3100",
     "build": "next build",
     "start": "next start",
+    "postinstall": "prisma generate",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.112.4",
     "@auth/prisma-adapter": "^2.11.3",
+    "@google/genai": "^2.13.0",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
     "csv-parse": "^7.0.1",

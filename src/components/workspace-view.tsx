@@ -120,10 +120,36 @@ function Tag({
 }
 function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState(false);
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaved(true);
-    window.setTimeout(onClose, 900);
+    setSaving(true);
+    setError("");
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: form.get("content"),
+          channel: form.get("channel"),
+          customer: form.get("customer") || undefined,
+        }),
+      });
+      if (!response.ok)
+        throw new Error(
+          (await response.json()).error ?? "Unable to save feedback.",
+        );
+      setSaved(true);
+      window.setTimeout(onClose, 900);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to save feedback.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
@@ -139,6 +165,14 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
             ×
           </button>
         </div>
+        {error && (
+          <p
+            role="alert"
+            className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200"
+          >
+            {error}
+          </p>
+        )}
         <div className="mt-5 space-y-4">
           <label className="form-label">
             Feedback
@@ -173,8 +207,11 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} className="secondary-button">
             Cancel
           </button>
-          <button className="primary-button">
-            {saved ? "Added" : "Add feedback"}
+          <button
+            disabled={saving || saved}
+            className="primary-button disabled:opacity-70"
+          >
+            {saved ? "Added" : saving ? "Saving..." : "Add feedback"}
           </button>
         </div>
       </form>
@@ -1168,11 +1205,16 @@ function SettingsInteractive() {
 function ReportsInteractive() {
   const [generated, setGenerated] = useState(false);
   const [open, setOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [liveReport, setLiveReport] = useState("");
   const reportTitle = generated
     ? "Weekly customer pulse — just generated"
     : "Weekly customer pulse";
   const exportReport = () => {
-    const content = `${reportTitle}\n\nExecutive summary\nOnboarding is the strongest negative signal, led by team invitation friction. Customers responded positively to the faster dashboard experience.\n\nRecommended action\nReview the invite step this sprint, then validate a streamlined flow with five active teams.`;
+    const content =
+      liveReport ||
+      `${reportTitle}\n\nExecutive summary\nOnboarding is the strongest negative signal, led by team invitation friction. Customers responded positively to the faster dashboard experience.\n\nRecommended action\nReview the invite step this sprint, then validate a streamlined flow with five active teams.`;
     const url = URL.createObjectURL(
       new Blob([content], { type: "text/plain" }),
     );
@@ -1182,21 +1224,57 @@ function ReportsInteractive() {
     link.click();
     URL.revokeObjectURL(url);
   };
+  async function generateReport() {
+    setGenerating(true);
+    setReportError("");
+    try {
+      const response = await fetch("/api/reports/generate", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.error ?? "Unable to generate a report.");
+      setLiveReport(payload.report.markdown);
+      setGenerated(true);
+      setOpen(true);
+    } catch (cause) {
+      setReportError(
+        cause instanceof Error ? cause.message : "Unable to generate a report.",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }
   return (
     <>
       <Header
         title="Voice of customer reports"
         description="Leadership-ready summaries built from actual feedback."
         action={
-          <button onClick={() => setGenerated(true)} className="primary-button">
+          <button
+            disabled={generating}
+            onClick={generateReport}
+            className="primary-button disabled:opacity-70"
+          >
             <Sparkles size={16} />
-            {generated ? "Report generated" : "Generate report"}
+            {generating
+              ? "Generating..."
+              : generated
+                ? "Report generated"
+                : "Generate report"}
           </button>
         }
       />
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <Tag kind="indigo">{generated ? "New report" : "Latest report"}</Tag>
+          {reportError && (
+            <p
+              role="alert"
+              className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200"
+            >
+              {reportError}
+            </p>
+          )}
+          {liveReport && <div className="mt-5 whitespace-pre-wrap rounded-xl bg-[var(--canvas)] p-5 text-sm leading-7 text-[var(--muted)]">{liveReport}</div>}
           <h2 className="mt-3 text-xl font-bold">{reportTitle}</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Jul 14 – Jul 20, 2026 · 137 feedback items analysed
@@ -1314,6 +1392,8 @@ function AskInteractive() {
   const [question, setQuestion] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [loading, setLoading] = useState(false);
+  const [liveAnswer, setLiveAnswer] = useState("");
+  const [askError, setAskError] = useState("");
   const query = submitted.toLowerCase();
   const answer = query.includes("mobile")
     ? {
@@ -1348,15 +1428,32 @@ function AskInteractive() {
               "Team invitation clarity is the biggest source of friction. Onboarding has 84 mentions and negative sentiment is up 32% this week.",
             evidence: feedback[0],
           };
-  function ask(value = question) {
+  async function ask(value = question) {
     const clean = value.trim();
     if (!clean || loading) return;
     setQuestion(clean);
     setLoading(true);
-    window.setTimeout(() => {
+    setAskError("");
+    try {
+      const response = await fetch("/api/insights/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: clean }),
+      });
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.error ?? "LOOP could not answer right now.");
       setSubmitted(clean);
+      setLiveAnswer(payload.answer);
+    } catch (cause) {
+      setAskError(
+        cause instanceof Error
+          ? cause.message
+          : "LOOP could not answer right now.",
+      );
+    } finally {
       setLoading(false);
-    }, 450);
+    }
   }
   return (
     <>
@@ -1395,9 +1492,11 @@ function AskInteractive() {
                   {submitted}
                 </div>
                 <div className="rounded-2xl rounded-bl-md bg-[var(--canvas)] p-5">
-                  <p className="font-medium">{answer.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                    {answer.summary}
+                  <p className="font-medium">
+                    {liveAnswer ? "Answer from LOOP" : answer.title}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">
+                    {liveAnswer || answer.summary}
                   </p>
                   <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                     Evidence
@@ -1435,6 +1534,14 @@ function AskInteractive() {
               </div>
             )}
           </div>
+          {askError && (
+            <p
+              role="alert"
+              className="mx-6 mb-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200"
+            >
+              {askError}
+            </p>
+          )}
           <form
             onSubmit={(event) => {
               event.preventDefault();

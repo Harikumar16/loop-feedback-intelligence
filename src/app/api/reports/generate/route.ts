@@ -1,0 +1,26 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { requireWorkspace } from "@/lib/auth";
+import { geminiModel, getGeminiClient } from "@/lib/ai";
+import { rateLimit } from "@/lib/rate-limit";
+
+export async function POST() {
+  try {
+    if (!process.env.GEMINI_API_KEY) return NextResponse.json({ error: "Gemini AI is not configured yet." }, { status: 503 });
+    const membership = await requireWorkspace();
+    const limit = rateLimit(`report:${membership.id}`, 4, 60 * 60_000);
+    if (!limit.allowed) return NextResponse.json({ error: "Please wait before generating another report." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+    const periodEnd = new Date();
+    const periodStart = new Date(periodEnd); periodStart.setDate(periodStart.getDate() - 7);
+    const feedback = await db.feedback.findMany({ where: { workspaceId: membership.workspaceId, sourceDate: { gte: periodStart, lte: periodEnd } }, orderBy: { sourceDate: "desc" }, take: 100, select: { content: true, channel: true, sentiment: true, featureArea: true } });
+    if (!feedback.length) return NextResponse.json({ error: "Add feedback before generating a report." }, { status: 400 });
+    const source = feedback.map((item, index) => `[${index + 1}] ${item.content} | ${item.channel} | ${item.sentiment ?? "Unclassified"} | ${item.featureArea ?? "General"}`).join("\n");
+    const response = await getGeminiClient().models.generateContent({ model: geminiModel, contents: `Create the weekly report from this feedback:\n${source}`, config: { systemInstruction: "Write a concise Voice of Customer report using only supplied feedback. Use these exact sections: Executive summary, Top themes, Sentiment shifts, Customer evidence, Recommended actions. Cite evidence numbers in brackets. Never invent facts or quotes.", maxOutputTokens: 1200 } });
+    const markdown = response.text ?? "No report was generated.";
+    const report = await db.report.create({ data: { workspaceId: membership.workspaceId, title: "Weekly customer pulse", periodStart, periodEnd, content: { markdown } } });
+    return NextResponse.json({ report: { id: report.id, title: report.title, markdown, periodStart, periodEnd } }, { status: 201 });
+  } catch (cause) {
+    if (cause instanceof Error && cause.message === "GEMINI_NOT_CONFIGURED") return NextResponse.json({ error: "Gemini AI is not configured yet." }, { status: 503 });
+    return NextResponse.json({ error: "LOOP could not generate a report right now. Please try again." }, { status: 500 });
+  }
+}

@@ -19,7 +19,7 @@ LOOP turns feedback from support, surveys, reviews, and sales conversations into
 4. Run `npm run db:seed` and `npm run dev`.
 5. Open `http://localhost:3000`.
 
-Set `ANTHROPIC_API_KEY` to enable live classification. Without it, ingestion remains safe and uses a neutral placeholder classification; it never sends data to an external provider.
+Set `GEMINI_API_KEY` to enable live classification, grounded Ask LOOP answers, and Voice-of-Customer reports. Without it, ingestion remains safe and uses a neutral placeholder classification; it never sends data to an external provider.
 
 ## Seed access
 

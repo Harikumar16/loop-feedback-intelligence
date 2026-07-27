@@ -17,7 +17,7 @@ LOOP is a multi-tenant customer-feedback intelligence platform. This implementat
 - CSV imports enforce row limits, byte limits, field validation, and partial-failure reporting.
 
 ## Required environment
-Copy `.env.example` to `.env`. Set a PostgreSQL `DATABASE_URL`, `AUTH_SECRET`, and (to enable live AI) `ANTHROPIC_API_KEY`.
+Copy `.env.example` to `.env`. Set a PostgreSQL `DATABASE_URL`, `AUTH_SECRET`, and (to enable live AI) `GEMINI_API_KEY`.
 
 ## Implementation note
 The UI includes rich demo data so the product can be evaluated before a database/API key is configured. Production route handlers and Prisma schema are included for the live integration path.
