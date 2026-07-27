@@ -37,7 +37,7 @@ const subscribeToTheme = () => () => undefined;
 const getStoredTheme = () => localStorage.getItem("loop-theme") === "dark";
 const getServerTheme = () => false;
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, user }: { children: React.ReactNode; user: { name: string; email: string } }) {
   const pathname = usePathname();
   const storedDark = useSyncExternalStore(
     subscribeToTheme,
@@ -121,14 +121,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-white/5"
           >
             <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 text-xs font-bold text-white">
-              HK
+              {user.name.slice(0, 2).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1">
               <strong className="block truncate text-sm text-white">
-                Hari Kumar
+                {user.name}
               </strong>
               <small className="block truncate text-xs text-indigo-200/55">
-                hari@loop.local
+                {user.email}
               </small>
             </span>
             <ChevronDown size={15} className="text-indigo-200/60" />
@@ -167,7 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => setAccountOpen((value) => !value)}
               className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 text-xs font-bold text-white lg:hidden"
             >
-              HK
+              {user.name.slice(0, 2).toUpperCase()}
             </button>
           </div>
         </header>

@@ -34,14 +34,14 @@ const trend = [
   { day: "Thu", volume: 52 },
   { day: "Fri", volume: 45 },
   { day: "Sat", volume: 29 },
-  { day: "Sun", volume: 41 },
-];
+  { day: "Sun", volume: 0 },
+].map((item) => ({ ...item, volume: 0 }));
 const themes = [
   { name: "Onboarding", count: 84, change: "+32%", tone: "rose" },
   { name: "Mobile experience", count: 61, change: "+18%", tone: "amber" },
   { name: "Billing & invoices", count: 43, change: "−6%", tone: "slate" },
   { name: "Team collaboration", count: 38, change: "+8%", tone: "violet" },
-];
+].slice(0, 0);
 const feedback = [
   {
     customer: "Maya, Northstar",
@@ -79,7 +79,7 @@ const feedback = [
     status: "Actioned",
     date: "Yesterday",
   },
-];
+].slice(0, 0);
 
 function Header({
   title,
@@ -223,7 +223,7 @@ function Dashboard() {
   return (
     <>
       <Header
-        title="Good morning, Hari"
+        title="Welcome to your workspace"
         description="Here’s what customers are telling you this week."
         action={
           <button onClick={() => setShowAdd(true)} className="primary-button">
@@ -238,12 +238,20 @@ function Dashboard() {
           ["24.8%", "Negative sentiment", "−3.1%", "rose"],
           ["137", "New this week", "+18.9%", "amber"],
           ["8", "Themes rising", "+2 this week", "violet"],
-        ].map(([value, label, delta, color]) => (
+        ].map(([, label, , color]) => (
           <Card key={label}>
             <p className="text-sm text-[var(--muted)]">{label}</p>
             <div className="mt-3 flex items-end justify-between">
-              <strong className="text-3xl tracking-tight">{value}</strong>
-              <Tag kind={color}>{delta}</Tag>
+              <strong className="text-3xl tracking-tight">
+                {label === "Negative sentiment" ? "0%" : "0"}
+              </strong>
+              <Tag kind={color}>
+                {label === "Total feedback"
+                  ? "Start here"
+                  : label === "New this week"
+                    ? "Add feedback"
+                    : "No data yet"}
+              </Tag>
             </div>
           </Card>
         ))}
@@ -289,16 +297,16 @@ function Dashboard() {
               ["Positive", "58%", "bg-emerald-500"],
               ["Neutral", "17%", "bg-amber-400"],
               ["Negative", "25%", "bg-rose-500"],
-            ].map(([label, pct, color]) => (
+            ].map(([label, , color]) => (
               <div key={label}>
                 <div className="mb-2 flex justify-between text-sm">
                   <span>{label}</span>
-                  <strong>{pct}</strong>
+                  <strong>0%</strong>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-[var(--line)]">
                   <div
                     className={`h-full rounded-full ${color}`}
-                    style={{ width: pct }}
+                    style={{ width: "0%" }}
                   />
                 </div>
               </div>

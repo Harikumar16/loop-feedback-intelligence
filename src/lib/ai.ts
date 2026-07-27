@@ -24,16 +24,21 @@ export async function classifyFeedback(content: string): Promise<Classification>
   if (!process.env.GEMINI_API_KEY) return fallbackClassification;
 
   try {
-    const response = await getGeminiClient().models.generateContent({
-      model: geminiModel,
-      contents: content,
-      config: {
-        systemInstruction:
-          "Classify customer feedback. Return only JSON with sentiment (POSITIVE|NEUTRAL|NEGATIVE), score (-1 to 1), themes (1-3 strings), and featureArea.",
-        responseMimeType: "application/json",
-        maxOutputTokens: 1024,
-      },
-    });
+    const response = await Promise.race([
+      getGeminiClient().models.generateContent({
+        model: geminiModel,
+        contents: content,
+        config: {
+          systemInstruction:
+            "Classify customer feedback. Return only JSON with sentiment (POSITIVE|NEUTRAL|NEGATIVE), score (-1 to 1), themes (1-3 strings), and featureArea.",
+          responseMimeType: "application/json",
+          maxOutputTokens: 1024,
+        },
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("AI_CLASSIFICATION_TIMEOUT")), 12_000);
+      }),
+    ]);
 
     return classification.parse(JSON.parse(extractJson(response.text ?? "")));
   } catch {
