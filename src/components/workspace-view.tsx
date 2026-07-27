@@ -1401,6 +1401,9 @@ function AskInteractive() {
   const [submitted, setSubmitted] = useState("");
   const [loading, setLoading] = useState(false);
   const [liveAnswer, setLiveAnswer] = useState("");
+  const [liveSources, setLiveSources] = useState<
+    { content: string; channel: string; customer: string | null }[]
+  >([]);
   const [askError, setAskError] = useState("");
   const query = submitted.toLowerCase();
   const answer = query.includes("mobile")
@@ -1408,14 +1411,14 @@ function AskInteractive() {
         title: "Mobile reporting is the clearest recurring concern.",
         summary:
           "Customers say the core product works, but reporting on mobile needs attention. It has 61 recent mentions.",
-        evidence: feedback[2],
+        evidence: feedback[2] ?? { customer: "Customer", channel: "Workspace", content: "No feedback evidence is available yet." },
       }
     : query.includes("dashboard") || query.includes("performance")
       ? {
           title: "The new dashboard is receiving strong positive feedback.",
           summary:
             "Customers repeatedly mention the faster, clearer dashboard experience as a meaningful improvement.",
-          evidence: feedback[1],
+        evidence: feedback[1] ?? { customer: "Customer", channel: "Workspace", content: "No feedback evidence is available yet." },
         }
       : query.includes("billing") || query.includes("invoice")
         ? {
@@ -1434,8 +1437,9 @@ function AskInteractive() {
               "Onboarding and team setup are the strongest customer concern.",
             summary:
               "Team invitation clarity is the biggest source of friction. Onboarding has 84 mentions and negative sentiment is up 32% this week.",
-            evidence: feedback[0],
+            evidence: feedback[0] ?? { customer: "Customer", channel: "Workspace", content: "No feedback evidence is available yet." },
           };
+  const shownEvidence = liveSources[0] ?? answer.evidence;
   async function ask(value = question) {
     const clean = value.trim();
     if (!clean || loading) return;
@@ -1453,6 +1457,7 @@ function AskInteractive() {
         throw new Error(payload.error ?? "LOOP could not answer right now.");
       setSubmitted(clean);
       setLiveAnswer(payload.answer);
+      setLiveSources(Array.isArray(payload.sources) ? payload.sources : []);
     } catch (cause) {
       setAskError(
         cause instanceof Error
@@ -1511,7 +1516,7 @@ function AskInteractive() {
                   </p>
                   <div className="mt-2 rounded-lg border-l-2 border-indigo-500 bg-[var(--surface)] p-3 text-sm">
                     “{answer.evidence.content}” — {answer.evidence.customer},{" "}
-                    {answer.evidence.channel}
+                    {shownEvidence.channel}
                   </div>
                 </div>
               </div>
