@@ -16,7 +16,7 @@ async function main() {
   const passwordHash = await hash("LoopDemo!2026", 12);
   const members: Array<[string, string, Role]> = [["Hari Kumar", "demo@loop.app", Role.ADMIN], ["Aisha Kapoor", "admin@acme.demo", Role.ADMIN], ["Kai Morgan", "analyst@acme.demo", Role.ANALYST], ["Rhea Patel", "viewer@acme.demo", Role.VIEWER]];
   for (const [name, email, role] of members) {
-    const user = await db.user.upsert({ where: { email }, update: {}, create: { name, email, passwordHash } });
+    const user = await db.user.upsert({ where: { email }, update: { name, passwordHash }, create: { name, email, passwordHash } });
     await db.membership.upsert({ where: { userId_workspaceId: { userId: user.id, workspaceId: workspace.id } }, update: { role }, create: { userId: user.id, workspaceId: workspace.id, role } });
   }
   const feedbackCount = await db.feedback.count({ where: { workspaceId: workspace.id } });
