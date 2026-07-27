@@ -28,7 +28,15 @@ export const { handlers, auth } = NextAuth({
       try {
         user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
       } catch (error) {
-        authDiagnostic("DATABASE_LOOKUP_FAILED", { errorType: error instanceof Error ? error.name : "UnknownError" });
+        if (process.env.AUTH_DEBUG === "true") {
+          const prismaError = error as { code?: unknown; name?: unknown; message?: unknown; stack?: unknown };
+          console.error("[AUTH_DIAGNOSTIC] DATABASE_LOOKUP_FAILED", {
+            code: prismaError.code,
+            name: prismaError.name,
+            message: prismaError.message,
+            stack: prismaError.stack,
+          });
+        }
         throw error;
       }
 
