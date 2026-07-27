@@ -7,6 +7,18 @@ import { rateLimit } from "@/lib/rate-limit";
 
 const inputSchema = z.object({ question: z.string().trim().min(3).max(500) });
 
+type Evidence = {
+  content: string;
+  channel: string;
+  customer: string | null;
+  sentiment: string | null;
+};
+
+function groundedFallback(question: string, feedback: Evidence[]) {
+  const snippets = feedback.slice(0, 3).map((item, index) => `[${index + 1}] ${item.content}`).join(" ");
+  return `Based on ${feedback.length} feedback item${feedback.length === 1 ? "" : "s"} in your workspace, I could not complete the AI analysis right now. For “${question}”, start with these recent signals: ${snippets}`;
+}
+
 export async function POST(request: Request) {
   try {
     if (!process.env.GEMINI_API_KEY) return NextResponse.json({ error: "Gemini AI is not configured yet." }, { status: 503 });
@@ -17,8 +29,16 @@ export async function POST(request: Request) {
     const feedback = await db.feedback.findMany({ where: { workspaceId: membership.workspaceId }, orderBy: { sourceDate: "desc" }, take: 20, select: { id: true, content: true, channel: true, customer: true, sentiment: true, sourceDate: true } });
     if (!feedback.length) return NextResponse.json({ error: "Add feedback before asking LOOP a question." }, { status: 400 });
     const evidence = feedback.map((item, index) => `[${index + 1}] ${item.content} | channel: ${item.channel} | customer: ${item.customer ?? "Unknown"} | sentiment: ${item.sentiment ?? "Unclassified"}`).join("\n");
-    const response = await getGeminiClient().models.generateContent({ model: geminiModel, contents: `Question: ${question}\n\nWorkspace feedback:\n${evidence}`, config: { systemInstruction: "You are LOOP, a customer-feedback analyst. Answer only from the supplied feedback. Be concise, state when evidence is insufficient, and cite evidence numbers like [1]. Do not invent facts or quotes.", maxOutputTokens: 700 } });
-    return NextResponse.json({ answer: response.text ?? "I could not generate an answer from the available feedback.", sources: feedback.slice(0, 4) });
+    try {
+      const response = await Promise.race([
+        getGeminiClient().models.generateContent({ model: geminiModel, contents: `Question: ${question}\n\nWorkspace feedback:\n${evidence}`, config: { systemInstruction: "You are LOOP, a customer-feedback analyst. Answer only from the supplied feedback. Be concise, state when evidence is insufficient, and cite evidence numbers like [1]. Do not invent facts or quotes.", maxOutputTokens: 700 } }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("ASK_TIMEOUT")), 15_000)),
+      ]);
+      const answer = response.text?.trim();
+      return NextResponse.json({ answer: answer || groundedFallback(question, feedback), sources: feedback.slice(0, 4) });
+    } catch {
+      return NextResponse.json({ answer: groundedFallback(question, feedback), sources: feedback.slice(0, 4) });
+    }
   } catch (cause) {
     if (cause instanceof z.ZodError) return NextResponse.json({ error: "Please enter a valid question." }, { status: 400 });
     if (cause instanceof Error && cause.message === "GEMINI_NOT_CONFIGURED") return NextResponse.json({ error: "Gemini AI is not configured yet." }, { status: 503 });
