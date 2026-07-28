@@ -10,6 +10,18 @@ function authDiagnostic(stage: string, details: Record<string, string | boolean>
   }
 }
 
+function logPrismaDiagnostic(stage: string, error: unknown) {
+  if (process.env.AUTH_DEBUG === "true") {
+    const prismaError = error as { code?: unknown; name?: unknown; message?: unknown; stack?: unknown };
+    console.error(`[AUTH_DIAGNOSTIC] ${stage}`, {
+      code: prismaError.code,
+      name: prismaError.name,
+      message: prismaError.message,
+      stack: prismaError.stack,
+    });
+  }
+}
+
 export const { handlers, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
   trustHost: process.env.AUTH_TRUST_HOST === "true",
@@ -24,19 +36,20 @@ export const { handlers, auth } = NextAuth({
       }
 
       authDiagnostic("AUTHORIZE_STARTED", { databaseConfigured: Boolean(process.env.DATABASE_URL) });
+      if (process.env.AUTH_DEBUG === "true") {
+        try {
+          const userCount = await db.user.count();
+          console.info("[AUTH_DIAGNOSTIC] USER_TABLE_AVAILABLE", { userCount });
+        } catch (error) {
+          logPrismaDiagnostic("USER_TABLE_CHECK_FAILED", error);
+          throw error;
+        }
+      }
       let user;
       try {
         user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
       } catch (error) {
-        if (process.env.AUTH_DEBUG === "true") {
-          const prismaError = error as { code?: unknown; name?: unknown; message?: unknown; stack?: unknown };
-          console.error("[AUTH_DIAGNOSTIC] DATABASE_LOOKUP_FAILED", {
-            code: prismaError.code,
-            name: prismaError.name,
-            message: prismaError.message,
-            stack: prismaError.stack,
-          });
-        }
+        logPrismaDiagnostic("DATABASE_LOOKUP_FAILED", error);
         throw error;
       }
 
